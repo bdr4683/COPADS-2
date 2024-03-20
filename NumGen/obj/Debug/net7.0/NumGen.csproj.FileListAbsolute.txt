@@ -12,3 +12,17 @@ C:\repos\COPADS\New folder\COPADS-2\NumGen\obj\Debug\net7.0\refint\NumGen.dll
 C:\repos\COPADS\New folder\COPADS-2\NumGen\obj\Debug\net7.0\NumGen.pdb
 C:\repos\COPADS\New folder\COPADS-2\NumGen\obj\Debug\net7.0\NumGen.genruntimeconfig.cache
 C:\repos\COPADS\New folder\COPADS-2\NumGen\obj\Debug\net7.0\ref\NumGen.dll
+C:\repos\COPADS\COPADS-2\NumGen\bin\Debug\net7.0\NumGen.exe
+C:\repos\COPADS\COPADS-2\NumGen\bin\Debug\net7.0\NumGen.deps.json
+C:\repos\COPADS\COPADS-2\NumGen\bin\Debug\net7.0\NumGen.runtimeconfig.json
+C:\repos\COPADS\COPADS-2\NumGen\bin\Debug\net7.0\NumGen.dll
+C:\repos\COPADS\COPADS-2\NumGen\bin\Debug\net7.0\NumGen.pdb
+C:\repos\COPADS\COPADS-2\NumGen\obj\Debug\net7.0\NumGen.GeneratedMSBuildEditorConfig.editorconfig
+C:\repos\COPADS\COPADS-2\NumGen\obj\Debug\net7.0\NumGen.AssemblyInfoInputs.cache
+C:\repos\COPADS\COPADS-2\NumGen\obj\Debug\net7.0\NumGen.AssemblyInfo.cs
+C:\repos\COPADS\COPADS-2\NumGen\obj\Debug\net7.0\NumGen.csproj.CoreCompileInputs.cache
+C:\repos\COPADS\COPADS-2\NumGen\obj\Debug\net7.0\NumGen.dll
+C:\repos\COPADS\COPADS-2\NumGen\obj\Debug\net7.0\refint\NumGen.dll
+C:\repos\COPADS\COPADS-2\NumGen\obj\Debug\net7.0\NumGen.pdb
+C:\repos\COPADS\COPADS-2\NumGen\obj\Debug\net7.0\NumGen.genruntimeconfig.cache
+C:\repos\COPADS\COPADS-2\NumGen\obj\Debug\net7.0\ref\NumGen.dll
