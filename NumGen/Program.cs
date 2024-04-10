@@ -1,6 +1,8 @@
 ﻿/// <summary>
 /// NumGen takes in 3 command line arguments and generates a series of prime numbers
 /// or random odd numbers and their number of factors
+/// 
+/// Author: Brandon Ranallo (bdr4683@rit.edu)
 /// <\summary>
 
 using System;
