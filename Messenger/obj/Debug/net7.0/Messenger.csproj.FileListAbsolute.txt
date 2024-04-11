@@ -1,0 +1,14 @@
+C:\repos\COPADS\COPADS-2\Messenger\obj\Debug\net7.0\Messenger.GeneratedMSBuildEditorConfig.editorconfig
+C:\repos\COPADS\COPADS-2\Messenger\obj\Debug\net7.0\Messenger.AssemblyInfoInputs.cache
+C:\repos\COPADS\COPADS-2\Messenger\obj\Debug\net7.0\Messenger.AssemblyInfo.cs
+C:\repos\COPADS\COPADS-2\Messenger\obj\Debug\net7.0\Messenger.csproj.CoreCompileInputs.cache
+C:\repos\COPADS\COPADS-2\Messenger\bin\Debug\net7.0\Messenger.exe
+C:\repos\COPADS\COPADS-2\Messenger\bin\Debug\net7.0\Messenger.deps.json
+C:\repos\COPADS\COPADS-2\Messenger\bin\Debug\net7.0\Messenger.runtimeconfig.json
+C:\repos\COPADS\COPADS-2\Messenger\bin\Debug\net7.0\Messenger.dll
+C:\repos\COPADS\COPADS-2\Messenger\bin\Debug\net7.0\Messenger.pdb
+C:\repos\COPADS\COPADS-2\Messenger\obj\Debug\net7.0\Messenger.dll
+C:\repos\COPADS\COPADS-2\Messenger\obj\Debug\net7.0\refint\Messenger.dll
+C:\repos\COPADS\COPADS-2\Messenger\obj\Debug\net7.0\Messenger.pdb
+C:\repos\COPADS\COPADS-2\Messenger\obj\Debug\net7.0\Messenger.genruntimeconfig.cache
+C:\repos\COPADS\COPADS-2\Messenger\obj\Debug\net7.0\ref\Messenger.dll
