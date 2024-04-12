@@ -113,7 +113,14 @@ class Program {
 
     static async Task SendKey(string email) {
         using (HttpClient client = new HttpClient()) {
-            PublicKey key = PublicKey.RetrieveKeyInfo();
+            PublicKey key;
+            try {
+                key = PublicKey.RetrieveKeyInfo();
+            }
+            catch(FileNotFoundException ex) {
+                Console.WriteLine("No local public key found. Run keyGen <keysize> to generate local keys.");
+                return;
+            }
             key.email = email;
 
             try {
@@ -122,8 +129,8 @@ class Program {
 
                 if (response.IsSuccessStatusCode) {
                     PrivateKey.AddEmail(email);
+                    Console.WriteLine("Key saved");
                 }
-
                 else {
                     Console.WriteLine("Http Put Error");
                 }
@@ -146,6 +153,10 @@ class Program {
                 if (response.IsSuccessStatusCode) {
                     
                     string responseBody = await response.Content.ReadAsStringAsync();
+                    if(responseBody == "") {
+                        Console.WriteLine("User has not been created or has no public key. Provide them with a key by running sendKey <user email>.");
+                        return;
+                    }
 
                     PublicKey key = JsonSerializer.Deserialize<PublicKey>(responseBody);
 
@@ -170,7 +181,22 @@ class Program {
     }
 
     static async Task GetMsg(string email) {
+        /*
+        byte[] keyBytes = Convert.FromBase64String(key);
 
+        int e = BinaryPrimitives.ReverseEndianness(BitConverter.ToInt32(keyBytes, 0));
+
+        byte[] EArr = new byte[e];
+        Array.Copy(keyBytes, 4, EArr, 0, e);
+        BigInteger E = new BigInteger(EArr);
+        Console.WriteLine(E);
+
+        int n = BinaryPrimitives.ReverseEndianness(BitConverter.ToInt32(keyBytes, 4 + e));
+
+        byte[] NArr = new byte[n];
+        Array.Copy(keyBytes, 4 + e + 4, NArr, 0, n);
+        BigInteger N = new BigInteger(NArr);
+        Console.WriteLine(N);*/
     }
 
     static BigInteger modInverse(BigInteger a, BigInteger b)
@@ -208,15 +234,14 @@ class Message {
 }
 
 class PrivateKey {
-
+    //string representation of the list of emails (for serialization purposes)
     public string email { get; set; }
+    //string representing the key
     public string key { get; set; }
+    //list of emails to be used in actual operations
     public List<string> emails;
 
-    public static void AddEmail(string user) {
-        RetrieveKeyInfo().Add(user).WriteToFile();
-    }
-
+    //Creates a PrivateKey instance by reading the JSON string from the private.key file and returns it
     public static PrivateKey RetrieveKeyInfo() {
         string keyInfo = File.ReadAllText("private.key");
         PrivateKey result = JsonSerializer.Deserialize<PrivateKey>(keyInfo);
@@ -224,17 +249,25 @@ class PrivateKey {
         return result;
     }
 
+    //Constructor for a Private Key
     public PrivateKey(string key) {
         this.key = key;
         emails = new List<string>();
         email = string.Join(", ", emails);
     }
 
+    //Serializes the PrivateKey object and writes it to the private.key file
     public void WriteToFile() {
         email = string.Join(", ", emails);
         File.WriteAllText("private.key", JsonSerializer.Serialize(this));
     }
 
+    //Public facing method to add an email to the email list and write the updated object to private.key
+    public static void AddEmail(string user) {
+        RetrieveKeyInfo().Add(user).WriteToFile();
+    }
+
+    //private helper method for adding a key to the email list
     private PrivateKey Add(string user) {
         emails.Add(user);
         return this;
