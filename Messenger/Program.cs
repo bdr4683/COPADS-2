@@ -2,6 +2,7 @@
 using System.Numerics;
 using System.IO;
 using System.Threading;
+using System.Text;
 using System.Security.Cryptography;
 using System.Data.SqlTypes;
 using System.Collections;
@@ -16,40 +17,55 @@ using System.Buffers.Binary;
 class Program {
 
     static void Main(string[] args) {
-        AsyncMain().Wait();
-    }
-
-    static async Task AsyncMain() {
-
-        keyGen(1024).Wait();
-
-        GetKey("toivcs@rit.edu").Wait();
-
-        using (HttpClient client = new HttpClient()) {
-
-            try {
-                
-                HttpResponseMessage response = await client.GetAsync("http://voyager.cs.rit.edu:5050/Key/toivcs@rit.edu");
-
-                if (response.IsSuccessStatusCode) {
-                    
-                    string responseBody = await response.Content.ReadAsStringAsync();
-
+        switch(args[0]) {
+            case "keyGen":
+                int keysize = 0;
+                if(args.Length > 1 && int.TryParse(args[1], out keysize)) {
+                    KeyGen(keysize).Wait();
                 }
-                else{
-                    Console.WriteLine("Failed");
+                else {
+                    PrintUsage();
                 }
-
-            }
-            catch (HttpRequestException e) {
-                //TODO
-                Console.WriteLine("Error: " + e.Message);
-            }
+                break;
+            case "sendKey":
+                if(args.Length > 1) {
+                    SendKey(args[1]).Wait();
+                }
+                else {
+                    PrintUsage();
+                }
+                break;
+            case "getKey":
+                if(args.Length > 1) {
+                    GetKey(args[1]).Wait();
+                }
+                else {
+                    PrintUsage();
+                }
+                break;
+            case "sendMsg":
+                if(args.Length > 2) {
+                    SendMsg(args[1], args[2]).Wait();
+                }
+                else {
+                    PrintUsage();
+                }
+                break;
+            case "getMsg":
+                if(args.Length > 1) {
+                    GetMsg(args[1]).Wait();
+                }
+                else {
+                    PrintUsage();
+                }
+                break;
+            default:
+                PrintUsage();
+                break;
         }
-
     }
 
-    static async Task keyGen(int keysize) {
+    static async Task KeyGen(int keysize) {
         Random random = new Random();
         int mult = 1;
         if(random.Next(0, 2) == 1)
@@ -94,57 +110,46 @@ class Program {
         privateKey.WriteToFile();
 
     }
-    
 
-    static async Task GetKey(string user) {
+    static async Task SendKey(string email) {
+        using (HttpClient client = new HttpClient()) {
+            PublicKey key = PublicKey.RetrieveKeyInfo();
+            key.email = email;
+
+            try {
+
+                HttpResponseMessage response = await client.PutAsync("http://voyager.cs.rit.edu:5050/Key/" + email, new StringContent(JsonSerializer.Serialize(key), Encoding.UTF8, "application/json"));
+
+                if (response.IsSuccessStatusCode) {
+                    PrivateKey.AddEmail(email);
+                }
+
+                else {
+                    Console.WriteLine("Http Put Error");
+                }
+
+            }
+            catch(HttpRequestException e) {
+                Console.WriteLine("Error: " + e.Message);
+            }
+
+        }
+    }    
+
+    static async Task GetKey(string email) {
         using (HttpClient client = new HttpClient()) {
 
             try {
                 
-                HttpResponseMessage response = await client.GetAsync("http://voyager.cs.rit.edu:5050/Key/" + user);
+                HttpResponseMessage response = await client.GetAsync("http://voyager.cs.rit.edu:5050/Key/" + email);
 
                 if (response.IsSuccessStatusCode) {
                     
                     string responseBody = await response.Content.ReadAsStringAsync();
 
-                    JsonDocument jsonDocument = JsonDocument.Parse(responseBody);
+                    PublicKey key = JsonSerializer.Deserialize<PublicKey>(responseBody);
 
-                    // Get the root element
-                    JsonElement root = jsonDocument.RootElement;
-
-                    string email = "";
-                    // Access the values
-                    if (root.TryGetProperty("email", out JsonElement emailProp)) {
-                        email = emailProp.GetString();
-                    }
-                    else {
-                        Console.WriteLine("Err: Email not found");
-                        return;
-                    }
-
-                    string key = "";
-                    // Access the values
-                    if (root.TryGetProperty("key", out JsonElement keyProp)) {
-                        key = keyProp.GetString();
-                    }
-                    else {
-                        Console.WriteLine("Err: Key not found");
-                        return;
-                    }
-                    
-                    byte[] keyBytes = Convert.FromBase64String(key);
-
-                    int e = BinaryPrimitives.ReverseEndianness(BitConverter.ToInt32(keyBytes, 0));
-                    
-                    byte[] EArr = new byte[e];
-                    Array.Copy(keyBytes, 4, EArr, 0, e);
-                    BigInteger E = new BigInteger(EArr);
-
-                    int n = BinaryPrimitives.ReverseEndianness(BitConverter.ToInt32(keyBytes, 4 + e));
-
-                    byte[] NArr = new byte[n];
-                    Array.Copy(keyBytes, 4 + e + 4, NArr, 0, n);
-                    BigInteger N = new BigInteger(NArr);       
+                    key.WriteToFile(email);   
                     
                 }
                 else{
@@ -158,6 +163,14 @@ class Program {
                 return;
             }
         }
+    }
+
+    static async Task SendMsg(string email, string content) {
+        
+    }
+
+    static async Task GetMsg(string email) {
+
     }
 
     static BigInteger modInverse(BigInteger a, BigInteger b)
@@ -176,6 +189,16 @@ class Program {
         return v;
     }
 
+    private static void PrintUsage() {
+        Console.WriteLine("Usage: dotnet run <option> <option arguments>\n" +
+                          "Options:\n" +
+                          "\tkeyGen <keysize>: Generates new public and private keys to be stored locally.\n" +
+                          "\tsendKey <email>: Sends the local public key to the specified user and stores it on the server.\n" +
+                          "\tgetKey <email>: Retrieves the public key from the specified user and stores it locally for future use.\n" +
+                          "\tsendMsg <email> <plaintext>: Sends an encrypted version of the plaintext message to the specified user given there is a key stored for that user.\n" +
+                          "\tgetMsg <email>: Retrieves the encrypted message of the given user and decrypts it if the private key for that user is locally stored.");
+    }
+
 }
 
 class Message {
@@ -185,25 +208,36 @@ class Message {
 }
 
 class PrivateKey {
-    public string key { get; set; }
-    public ArrayList emails;
 
-    public void AddEmail(string email) {
-        emails.Add(email);
+    public string email { get; set; }
+    public string key { get; set; }
+    public List<string> emails;
+
+    public static void AddEmail(string user) {
+        RetrieveKeyInfo().Add(user).WriteToFile();
     }
 
-    public PrivateKey RetrieveKeyInfo() {
+    public static PrivateKey RetrieveKeyInfo() {
         string keyInfo = File.ReadAllText("private.key");
-        return JsonSerializer.Deserialize<PrivateKey>(keyInfo);
+        PrivateKey result = JsonSerializer.Deserialize<PrivateKey>(keyInfo);
+        result.emails = new List<string>(result.email.Split(",", StringSplitOptions.RemoveEmptyEntries));
+        return result;
     }
 
     public PrivateKey(string key) {
         this.key = key;
-        emails = new ArrayList();
+        emails = new List<string>();
+        email = string.Join(", ", emails);
     }
 
     public void WriteToFile() {
+        email = string.Join(", ", emails);
         File.WriteAllText("private.key", JsonSerializer.Serialize(this));
+    }
+
+    private PrivateKey Add(string user) {
+        emails.Add(user);
+        return this;
     }
 
 }
@@ -217,13 +251,17 @@ class PublicKey {
         this.email = "";
     }
 
-    public PublicKey RetrieveKeyInfo() {
+    public static PublicKey RetrieveKeyInfo() {
         string keyInfo = File.ReadAllText("public.key");
         return JsonSerializer.Deserialize<PublicKey>(keyInfo);
     }
 
     public void WriteToFile() {
         File.WriteAllText("public.key", JsonSerializer.Serialize(this));
+    }
+
+    public void WriteToFile(string email) {
+        File.WriteAllText(email + ".key", JsonSerializer.Serialize(this));
     }
 }
 
