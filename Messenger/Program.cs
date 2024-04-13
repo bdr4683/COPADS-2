@@ -34,7 +34,7 @@ class Program {
             switch(args[0]) {
                 case "keyGen":
                     int keysize = 0;
-                    if(args.Length > 1 && int.TryParse(args[1], out keysize)) {
+                    if(args.Length == 2 && int.TryParse(args[1], out keysize)) {
                         KeyGen(keysize).Wait();
                     }
                     else {
@@ -42,7 +42,7 @@ class Program {
                     }
                     break;
                 case "sendKey":
-                    if(args.Length > 1) {
+                    if(args.Length == 2) {
                         SendKey(args[1]).Wait();
                     }
                     else {
@@ -50,7 +50,7 @@ class Program {
                     }
                     break;
                 case "getKey":
-                    if(args.Length > 1) {
+                    if(args.Length == 2) {
                         GetKey(args[1]).Wait();
                     }
                     else {
@@ -67,7 +67,7 @@ class Program {
                     }
                     break;
                 case "getMsg":
-                    if(args.Length > 1) {
+                    if(args.Length == 2) {
                         GetMsg(args[1]).Wait();
                     }
                     else {
@@ -286,7 +286,9 @@ class Program {
                 Console.WriteLine("Error: " + e.Message);
                 return;
             }
-            
+            catch (FileNotFoundException) {
+                Console.WriteLine("Private key has not yet been generated. Generate private and public keys by running keyGen <bits>");
+            }
 
             
         }
