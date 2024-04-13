@@ -83,9 +83,9 @@ class Program {
 
         //Convert all numbers to properly formatted byte arrays (reversing endianness on length numbers to make them big endian)
         byte[] N = NBig.ToByteArray();
-        byte[] n = BitConverter.GetBytes(BinaryPrimitives.ReverseEndianness(N.Length));
+        byte[] n = BitConverter.GetBytes(N.Length);
         byte[] E = EBig.ToByteArray();
-        byte[] e = BitConverter.GetBytes(BinaryPrimitives.ReverseEndianness(ESize));
+        byte[] e = BitConverter.GetBytes(E.Length);
         byte[] D = DBig.ToByteArray();
         byte[] d = BitConverter.GetBytes(BinaryPrimitives.ReverseEndianness(D.Length));
 
@@ -103,7 +103,7 @@ class Program {
         System.Buffer.BlockCopy(n, 0, privateBytes, d.Length + D.Length, n.Length);
         System.Buffer.BlockCopy(N, 0, privateBytes, d.Length + D.Length + n.Length, N.Length);
 
-        PublicKey publicKey = new PublicKey(Convert.ToBase64String(publicBytes));
+        PublicKey publicKey = new PublicKey(Convert.ToBase64String(publicBytes), "");
         publicKey.WriteToFile();
 
         PrivateKey privateKey = new PrivateKey(Convert.ToBase64String(privateBytes));
@@ -158,7 +158,8 @@ class Program {
                         return;
                     }
 
-                    PublicKey key = JsonSerializer.Deserialize<PublicKey>(responseBody);
+                    JsonDocument body = JsonDocument.Parse(responseBody);
+                    PublicKey key = JsonSerializer.Deserialize<PublicKey>(body);
 
                     key.WriteToFile(email);   
                     
@@ -177,11 +178,30 @@ class Program {
     }
 
     static async Task SendMsg(string email, string content) {
-        
+        using (HttpClient client = new HttpClient()) {
+            try {
+                PublicKey userKey = PublicKey.GetUserKey(email);
+                string encryptedMsg = Encrypt(userKey.key, content);
+                string message = (new Message(email, encryptedMsg)).ToString();
+                HttpResponseMessage response = await client.PutAsync("http://voyager.cs.rit.edu:5050/Message/" + email, new StringContent(message, Encoding.UTF8, "application/json"));
+                if(response.IsSuccessStatusCode) {
+                    Console.WriteLine("Message Written");
+                    return;
+                }
+            }
+            catch (FileNotFoundException ex) {
+                Console.WriteLine("Public key not stored locally for this user. Run getKey <user> to retrieve user's encryption key.");
+                return;
+            }
+            catch (HttpRequestException e) {
+                Console.WriteLine("Error uploading message to user: " + e.Message);
+            }
+        }
     }
 
     static async Task GetMsg(string email) {
         /*
+        
         byte[] keyBytes = Convert.FromBase64String(key);
 
         int e = BinaryPrimitives.ReverseEndianness(BitConverter.ToInt32(keyBytes, 0));
@@ -197,6 +217,30 @@ class Program {
         Array.Copy(keyBytes, 4 + e + 4, NArr, 0, n);
         BigInteger N = new BigInteger(NArr);
         Console.WriteLine(N);*/
+    }
+
+    static string Encrypt(string key, string content) {
+        byte[] keyBytes = Convert.FromBase64String(key);
+
+        int e = BitConverter.ToInt32(keyBytes, 0);
+
+        byte[] EArr = new byte[e];
+        Array.Copy(keyBytes, 4, EArr, 0, e);
+        BigInteger E = new BigInteger(EArr);
+
+        int n = BinaryPrimitives.ReverseEndianness(BitConverter.ToInt32(keyBytes, 4 + e));
+        byte[] NArr = new byte[n];
+        Array.Copy(keyBytes, 4 + e + 4, NArr, 0, n);
+        BigInteger N = new BigInteger(NArr);
+
+        byte[] msgBytes = Convert.FromBase64String(content);
+        BigInteger msg = new BigInteger(msgBytes);
+
+        msg = BigInteger.ModPow(msg, E, N);
+
+        msgBytes = msg.ToByteArray();
+        return Convert.ToBase64String(msgBytes);
+
     }
 
     static BigInteger modInverse(BigInteger a, BigInteger b)
@@ -230,6 +274,15 @@ class Program {
 class Message {
     public string email { get; set; }
     public string content { get; set; }
+
+    public Message(string email, string content) {
+        this.email = email;
+        this.content = content;
+    }
+
+    public string ToString() {
+        return JsonSerializer.Serialize(this);
+    }
 
 }
 
@@ -279,7 +332,7 @@ class PublicKey {
     public string email { get; set; }
     public string key { get; set; }
 
-    public PublicKey(string key) {
+    public PublicKey(string key, string email) {
         this.key = key;
         this.email = "";
     }
@@ -287,6 +340,24 @@ class PublicKey {
     public static PublicKey RetrieveKeyInfo() {
         string keyInfo = File.ReadAllText("public.key");
         return JsonSerializer.Deserialize<PublicKey>(keyInfo);
+    }
+
+    public static PublicKey GetUserKey(string user) {
+        string keyInfo = File.ReadAllText(user + ".key");
+        JsonDocument jsonDocument = JsonDocument.Parse(keyInfo);
+        JsonElement root = jsonDocument.RootElement;
+        string emailString = "";
+        if (root.TryGetProperty("email", out JsonElement emailElement))
+        {
+            emailString = emailElement.GetString();
+        }
+        string keyString = "";
+        if (root.TryGetProperty("key", out JsonElement keyElement))
+        {
+            keyString = keyElement.GetString();
+        }
+
+        return new PublicKey(keyString, emailString);
     }
 
     public void WriteToFile() {
