@@ -1,4 +1,13 @@
-﻿using System;
+﻿///
+/// Program.cs contains functionality for generating, sending, and recieving RSA
+///  encryption keys as well as encrypting and decrypting messages that can be
+///  sent to and recieved from an external server
+///
+/// Author: Brandon Ranallo
+/// Date: 4/12/2024
+///
+
+using System;
 using System.Numerics;
 using System.IO;
 using System.Threading;
@@ -16,55 +25,70 @@ using System.Buffers.Binary;
 
 class Program {
 
+    /// <summary>
+    /// Main takes in all command line arguments and performs the appropriate task, printing a usage message when arguments are bad
+    /// </summary>
+    /// <param name="args">Command line arguments</param>
     static void Main(string[] args) {
-        switch(args[0]) {
-            case "keyGen":
-                int keysize = 0;
-                if(args.Length > 1 && int.TryParse(args[1], out keysize)) {
-                    KeyGen(keysize).Wait();
-                }
-                else {
+        try{
+            switch(args[0]) {
+                case "keyGen":
+                    int keysize = 0;
+                    if(args.Length > 1 && int.TryParse(args[1], out keysize)) {
+                        KeyGen(keysize).Wait();
+                    }
+                    else {
+                        PrintUsage();
+                    }
+                    break;
+                case "sendKey":
+                    if(args.Length > 1) {
+                        SendKey(args[1]).Wait();
+                    }
+                    else {
+                        PrintUsage();
+                    }
+                    break;
+                case "getKey":
+                    if(args.Length > 1) {
+                        GetKey(args[1]).Wait();
+                    }
+                    else {
+                        PrintUsage();
+                    }
+                    break;
+                case "sendMsg":
+                    if(args.Length > 2) {
+                        string message = string.Join(" ", args, 2, args.Length - 2);
+                        SendMsg(args[1], message).Wait();
+                    }
+                    else {
+                        PrintUsage();
+                    }
+                    break;
+                case "getMsg":
+                    if(args.Length > 1) {
+                        GetMsg(args[1]).Wait();
+                    }
+                    else {
+                        PrintUsage();
+                    }
+                    break;
+                default:
                     PrintUsage();
-                }
-                break;
-            case "sendKey":
-                if(args.Length > 1) {
-                    SendKey(args[1]).Wait();
-                }
-                else {
-                    PrintUsage();
-                }
-                break;
-            case "getKey":
-                if(args.Length > 1) {
-                    GetKey(args[1]).Wait();
-                }
-                else {
-                    PrintUsage();
-                }
-                break;
-            case "sendMsg":
-                if(args.Length > 2) {
-                    SendMsg(args[1], args[2]).Wait();
-                }
-                else {
-                    PrintUsage();
-                }
-                break;
-            case "getMsg":
-                if(args.Length > 1) {
-                    GetMsg(args[1]).Wait();
-                }
-                else {
-                    PrintUsage();
-                }
-                break;
-            default:
-                PrintUsage();
-                break;
+                    break;
+            }
+        }
+        catch {
+            Console.WriteLine("Oh... Something unexpected went wrong...");
         }
     }
 
+    /// <summary>
+    /// Generates public and private keys to be stored locally in public.key and private.key
+    /// </summary>
+    /// <param name="keysize">keysize - in bits - to be used for encryption</param>
+    /// <returns>n/a</returns>
     static async Task KeyGen(int keysize) {
         Random random = new Random();
         int mult = 1;
@@ -87,7 +111,7 @@ class Program {
         byte[] E = EBig.ToByteArray();
         byte[] e = BitConverter.GetBytes(E.Length);
         byte[] D = DBig.ToByteArray();
-        byte[] d = BitConverter.GetBytes(BinaryPrimitives.ReverseEndianness(D.Length));
+        byte[] d = BitConverter.GetBytes(D.Length);
 
         //Create public key byte array by block copying from other byte arrays in order
         byte[] publicBytes = new byte[e.Length + E.Length + n.Length + N.Length];
@@ -111,6 +135,11 @@ class Program {
 
     }
 
+    /// <summary>
+    /// Sends the key from public.key to the specified user on the server and adds that user's email to the list of emails in private.key
+    /// </summary>
+    /// <param name="email">email of user to send the key to</param>
+    /// <returns></returns>
     static async Task SendKey(string email) {
         using (HttpClient client = new HttpClient()) {
             PublicKey key;
@@ -143,6 +172,11 @@ class Program {
         }
     }    
 
+    /// <summary>
+    /// Retrieves a key from a user on the server and stores it in a file named <paramref name="email"/>.key
+    /// </summary>
+    /// <param name="email">email of user to get key from</param>
+    /// <returns></returns>
     static async Task GetKey(string email) {
         using (HttpClient client = new HttpClient()) {
 
@@ -177,6 +211,12 @@ class Program {
         }
     }
 
+    /// <summary>
+    /// Sends an encoded and encrypted message to the specified user.
+    /// </summary>
+    /// <param name="email">email of remote user to send the message to</param>
+    /// <param name="content">plaintext content of the message to send</param>
+    /// <returns></returns>
     static async Task SendMsg(string email, string content) {
         using (HttpClient client = new HttpClient()) {
             try {
@@ -199,26 +239,65 @@ class Program {
         }
     }
 
+    /// <summary>
+    /// Retrieves the message stored by the specified user on the server and prints the message on the command line
+    /// </summary>
+    /// <param name="email">email of user to retrieve message from</param>
+    /// <returns></returns>
     static async Task GetMsg(string email) {
-        /*
-        
-        byte[] keyBytes = Convert.FromBase64String(key);
+        using(HttpClient client = new HttpClient()) {
+            try {
+                
+                HttpResponseMessage response = await client.GetAsync("http://voyager.cs.rit.edu:5050/Message/" + email);
 
-        int e = BinaryPrimitives.ReverseEndianness(BitConverter.ToInt32(keyBytes, 0));
+                if (response.IsSuccessStatusCode) {
+                    
+                    string responseBody = await response.Content.ReadAsStringAsync();
+                    if(responseBody == "") {
+                        Console.WriteLine("User has not been created or has no message. Provide them with a message by running sendMsg <user email> <message>");
+                        return;
+                    }
 
-        byte[] EArr = new byte[e];
-        Array.Copy(keyBytes, 4, EArr, 0, e);
-        BigInteger E = new BigInteger(EArr);
-        Console.WriteLine(E);
+                    JsonDocument jsonDocument = JsonDocument.Parse(responseBody);
+                    JsonElement root = jsonDocument.RootElement;
 
-        int n = BinaryPrimitives.ReverseEndianness(BitConverter.ToInt32(keyBytes, 4 + e));
+                    string content = root.GetProperty("content").GetString();
 
-        byte[] NArr = new byte[n];
-        Array.Copy(keyBytes, 4 + e + 4, NArr, 0, n);
-        BigInteger N = new BigInteger(NArr);
-        Console.WriteLine(N);*/
+                    Message message = new Message(email, content);
+                    
+                    PrivateKey privateKey = PrivateKey.RetrieveKeyInfo();
+
+                    if(!privateKey.emails.Contains(message.email)) {
+                        Console.WriteLine("No private key saved for this user. Run sendKey <user> to obtain key.");
+                        return;
+                    }
+
+                    string result = Decrypt(privateKey.key, message.content);
+                    Console.WriteLine(result);              
+                    
+                }
+                else{
+                    Console.WriteLine("Failed");
+                }
+
+            }
+            catch (HttpRequestException e) {
+                //TODO
+                Console.WriteLine("Error: " + e.Message);
+                return;
+            }
+            
+
+            
+        }
     }
 
+    /// <summary>
+    /// Performs the modpow encryption algorithm on a message given a proper key
+    /// </summary>
+    /// <param name="key">encryption key as a base 64 encoded string</param>
+    /// <param name="content">plaintext message to be encrypted</param>
+    /// <returns></returns>
     static string Encrypt(string key, string content) {
         byte[] keyBytes = Convert.FromBase64String(key);
 
@@ -228,21 +307,57 @@ class Program {
         Array.Copy(keyBytes, 4, EArr, 0, e);
         BigInteger E = new BigInteger(EArr);
 
-        int n = BinaryPrimitives.ReverseEndianness(BitConverter.ToInt32(keyBytes, 4 + e));
+        int n = BitConverter.ToInt32(keyBytes, 4 + e);
         byte[] NArr = new byte[n];
         Array.Copy(keyBytes, 4 + e + 4, NArr, 0, n);
         BigInteger N = new BigInteger(NArr);
 
-        byte[] msgBytes = Convert.FromBase64String(content);
+        byte[] msgBytes = Encoding.UTF8.GetBytes(content);
         BigInteger msg = new BigInteger(msgBytes);
 
         msg = BigInteger.ModPow(msg, E, N);
 
         msgBytes = msg.ToByteArray();
         return Convert.ToBase64String(msgBytes);
-
     }
 
+    /// <summary>
+    /// Decrypts an encrypted message given the decryption key
+    /// </summary>
+    /// <param name="key">decryption key as a base64 encoded string</param>
+    /// <param name="content">base64 encoded message to decrypt</param>
+    /// <returns></returns>
+    static string Decrypt(string key, string content) {
+        byte[] keyBytes = Convert.FromBase64String(key);
+
+        int d = BitConverter.ToInt32(keyBytes, 0);
+
+        byte[] DArr = new byte[d];
+        Array.Copy(keyBytes, 4, DArr, 0, d);
+        BigInteger D = new BigInteger(DArr);
+
+        int n = (BitConverter.ToInt32(keyBytes, 4 + d));
+        byte[] NArr = new byte[n];
+        Array.Copy(keyBytes, 4 + d + 4, NArr, 0, n);
+        BigInteger N = new BigInteger(NArr);
+
+        
+
+        byte[] msgBytes = Convert.FromBase64String(content);
+        BigInteger msg = new BigInteger(msgBytes);
+
+        msg = BigInteger.ModPow(msg, D, N);
+
+        msgBytes = msg.ToByteArray();
+        return Encoding.UTF8.GetString(msgBytes);
+    }
+
+    /// <summary>
+    /// Provided modInverse function
+    /// </summary>
+    /// <param name="a">E</param>
+    /// <param name="b">T</param>
+    /// <returns>D</returns>
     static BigInteger modInverse(BigInteger a, BigInteger b)
     {
         BigInteger i = b, v = 0, d = 1;
@@ -259,6 +374,9 @@ class Program {
         return v;
     }
 
+    /// <summary>
+    /// Prints proper command line usage of program
+    /// </summary>
     private static void PrintUsage() {
         Console.WriteLine("Usage: dotnet run <option> <option arguments>\n" +
                           "Options:\n" +
@@ -271,6 +389,9 @@ class Program {
 
 }
 
+/// <summary>
+/// Json serializable class for messages
+/// </summary>
 class Message {
     public string email { get; set; }
     public string content { get; set; }
@@ -286,6 +407,9 @@ class Message {
 
 }
 
+/// <summary>
+/// Json serializable class for private key
+/// </summary>
 class PrivateKey {
     //string representation of the list of emails (for serialization purposes)
     public string email { get; set; }
@@ -298,7 +422,7 @@ class PrivateKey {
     public static PrivateKey RetrieveKeyInfo() {
         string keyInfo = File.ReadAllText("private.key");
         PrivateKey result = JsonSerializer.Deserialize<PrivateKey>(keyInfo);
-        result.emails = new List<string>(result.email.Split(",", StringSplitOptions.RemoveEmptyEntries));
+        result.emails = new List<string>(result.email.Split(", ", StringSplitOptions.RemoveEmptyEntries));
         return result;
     }
 
@@ -328,6 +452,9 @@ class PrivateKey {
 
 }
 
+/// <summary>
+/// Json serializable class for public keys
+/// </summary>
 class PublicKey {
     public string email { get; set; }
     public string key { get; set; }
@@ -337,11 +464,20 @@ class PublicKey {
         this.email = "";
     }
 
+    /// <summary>
+    /// retrieves the public key stored in public.key
+    /// </summary>
+    /// <returns>PublicKey object representing the key</returns>
     public static PublicKey RetrieveKeyInfo() {
         string keyInfo = File.ReadAllText("public.key");
         return JsonSerializer.Deserialize<PublicKey>(keyInfo);
     }
 
+    /// <summary>
+    /// retrieves a public key stored in a specified user file
+    /// </summary>
+    /// <param name="user">email of the user to retrieve the public key for</param>
+    /// <returns>PublicKey object representing the key</returns>
     public static PublicKey GetUserKey(string user) {
         string keyInfo = File.ReadAllText(user + ".key");
         JsonDocument jsonDocument = JsonDocument.Parse(keyInfo);
@@ -360,10 +496,17 @@ class PublicKey {
         return new PublicKey(keyString, emailString);
     }
 
+    /// <summary>
+    /// Saves the key to public.key
+    /// </summary>
     public void WriteToFile() {
         File.WriteAllText("public.key", JsonSerializer.Serialize(this));
     }
 
+    /// <summary>
+    /// Saves the key to <paramref name="email"/>.key
+    /// </summary>
+    /// <param name="email">email of user to save the key for</param>
     public void WriteToFile(string email) {
         File.WriteAllText(email + ".key", JsonSerializer.Serialize(this));
     }
